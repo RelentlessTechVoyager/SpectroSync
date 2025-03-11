@@ -2,148 +2,330 @@ import streamlit as st
 import tensorflow as tf
 import numpy as np
 import librosa
-from matplotlib import pyplot
-import numpy as np
 from tensorflow.image import resize
 
-#Function
-@st.cache_resource()
-def load_model():
-  model = tf.keras.models.load_model("Trained_model.keras")
-  return model
+# Define genres dictionary with playable MP3 and video URLs
+genres = {
+    "Blues": [
+        {"name": "The Thrill Is Gone - B.B. King", "audio": "https://www.bensound.com/bensound-music/bensound-slowmotion.mp3", "video": "https://www.youtube.com/watch?v=4fk2prKnYnI"},
+        {"name": "Sweet Home Chicago - Robert Johnson", "audio": "https://www.bensound.com/bensound-music/bensound-moose.mp3", "video": "https://www.youtube.com/watch?v=O8hqGu-leFc"},
+        {"name": "Stormy Monday - T-Bone Walker", "audio": "https://www.bensound.com/bensound-music/bensound-sunny.mp3", "video": "https://www.youtube.com/watch?v=V-OYKd8SVrI"}
+    ],
+    "Pop": [
+        {"name": "Thriller - Michael Jackson", "audio": "https://www.bensound.com/bensound-music/bensound-dreams.mp3", "video": "https://www.youtube.com/watch?v=sOnqjkJTMaA"},
+        {"name": "Shape of You - Ed Sheeran", "audio": "https://www.bensound.com/bensound-music/bensound-summer.mp3", "video": "https://www.youtube.com/watch?v=JGwWNGJdvx8"},
+        {"name": "Blinding Lights - The Weeknd", "audio": "https://www.bensound.com/bensound-music/bensound-funkyelement.mp3", "video": "https://www.youtube.com/watch?v=4NRXx6U8ABQ"}
+    ],
+    "Rock": [
+        {"name": "Bohemian Rhapsody - Queen", "audio": "https://www.bensound.com/bensound-music/bensound-energy.mp3", "video": "https://www.youtube.com/watch?v=fJ9rUzIMcZQ"},
+        {"name": "Stairway to Heaven - Led Zeppelin", "audio": "https://www.bensound.com/bensound-music/bensound-actionable.mp3", "video": "https://www.youtube.com/watch?v=QkF3oxziUI4"},
+        {"name": "Hotel California - Eagles", "audio": "https://www.bensound.com/bensound-music/bensound-buddy.mp3", "video": "https://www.youtube.com/watch?v=09839DpTctY"}
+    ],
+    "Hip-Hop": [
+        {"name": "Lose Yourself - Eminem", "audio": "https://www.bensound.com/bensound-music/bensound-hipjazz.mp3", "video": "https://www.youtube.com/watch?v=_Yhyp-_hX2s"},
+        {"name": "Juicy - The Notorious B.I.G.", "audio": "https://www.bensound.com/bensound-music/bensound-thejazzpiano.mp3", "video": "https://www.youtube.com/watch?v=_JZom_gVfuw"},
+        {"name": "Sicko Mode - Travis Scott", "audio": "https://www.bensound.com/bensound-music/bensound-brazilsamba.mp3", "video": "https://www.youtube.com/watch?v=6ONRf7h3Mdk"}
+    ],
+    "Jazz": [
+        {"name": "So What - Miles Davis", "audio": "https://www.bensound.com/bensound-music/bensound-jazzyfrenchy.mp3", "video": "https://www.youtube.com/watch?v=zqNTltOGh5c"},
+        {"name": "Take Five - Dave Brubeck", "audio": "https://www.bensound.com/bensound-music/bensound-theelevatorbossanova.mp3", "video": "https://www.youtube.com/watch?v=vmDDOFXSgAs"},
+        {"name": "Feeling Good - Nina Simone", "audio": "https://www.bensound.com/bensound-music/bensound-tenderness.mp3", "video": "https://www.youtube.com/watch?v=OfJRX-8SXOs"}
+    ],
+    "Disco": [
+        {"name": "Stayin' Alive - Bee Gees", "audio": "", "video": "https://www.youtube.com/watch?v=I_izvAbhExY"},
+        {"name": "Le Freak - Chic", "audio": "", "video": "https://www.youtube.com/watch?v=h1qQ1SKNlgY"},
+        {"name": "Funky Town - Lipps Inc.", "audio": "", "video": "https://www.youtube.com/watch?v=kcKTGZVITD4"}
+    ],
+    "Metal": [
+        {"name": "Master of Puppets - Metallica", "audio": "", "video": "https://www.youtube.com/watch?v=E0ozmU9cJDg"},
+        {"name": "Painkiller - Judas Priest", "audio": "", "video": "https://www.youtube.com/watch?v=nM__lPTWThU"},
+        {"name": "Holy Wars - Megadeth", "audio": "", "video": "https://www.youtube.com/watch?v=9d4ui9q7eDM"}
+    ],
+    "Classical": [
+        {"name": "Symphony No. 5 - Beethoven", "audio": "https://www.bensound.com/bensound-music/bensound-november.mp3", "video": "https://www.youtube.com/watch?v=fOk8Tm815lE"},
+        {"name": "Canon in D - Pachelbel", "audio": "https://www.bensound.com/bensound-music/bensound-littleplanet.mp3", "video": "https://www.youtube.com/watch?v=NlprozGcs80"},
+        {"name": "Clair de Lune - Debussy", "audio": "https://www.bensound.com/bensound-music/bensound-tenderness.mp3", "video": "https://www.youtube.com/watch?v=ea2WoUtbzuw"}
+    ],
+    "Reggae": [
+        {"name": "No Woman, No Cry - Bob Marley", "audio": "https://www.bensound.com/bensound-music/bensound-acousticguitar.mp3", "video": "https://www.youtube.com/watch?v=IT8XvzIfiZs"},
+        {"name": "Bad Boys - Inner Circle", "audio": "https://www.bensound.com/bensound-music/bensound-cool.mp3", "video": "https://www.youtube.com/watch?v=Do0YXQ51pXI"},
+        {"name": "Sweat (A La La La La Long) - Inner Circle", "audio": "https://www.bensound.com/bensound-music/bensound-happyrock.mp3", "video": "https://www.youtube.com/watch?v=7ZfYgGTAGp0"}
+    ],
+    "Country": [
+        {"name": "Take Me Home, Country Roads - John Denver", "audio": "https://www.bensound.com/bensound-music/bensound-riverside.mp3", "video": "https://www.youtube.com/watch?v=1vrEljMfXYo"},
+        {"name": "Jolene - Dolly Parton", "audio": "https://www.bensound.com/bensound-music/bensound-easygoing.mp3", "video": "https://www.youtube.com/watch?v=Mc3INQ4ndG8"},
+        {"name": "The Gambler - Kenny Rogers", "audio": "https://www.bensound.com/bensound-music/bensound-sunny.mp3", "video": "https://www.youtube.com/watch?v=2I9AOSZxhb0"}
+    ]
+}
 
-
-# Load and preprocess audio data
-def load_and_preprocess_data(file_path, target_shape=(150, 150)):
-    data = []
-    audio_data, sample_rate = librosa.load(file_path, sr=None)
-    # Perform preprocessing (e.g., convert to Mel spectrogram and resize)
-    # Define the duration of each chunk and overlap
-    chunk_duration = 4  # seconds
-    overlap_duration = 2  # seconds
-                
-    # Convert durations to samples
-    chunk_samples = chunk_duration * sample_rate
-    overlap_samples = overlap_duration * sample_rate
-                
-    # Calculate the number of chunks
-    num_chunks = int(np.ceil((len(audio_data) - chunk_samples) / (chunk_samples - overlap_samples))) + 1
-                
-    # Iterate over each chunk
-    for i in range(num_chunks):
-                    # Calculate start and end indices of the chunk
-        start = i * (chunk_samples - overlap_samples)
-        end = start + chunk_samples
-                    
-                    # Extract the chunk of audio
-        chunk = audio_data[start:end]
-                    
-                    # Compute the Mel spectrogram for the chunk
-        mel_spectrogram = librosa.feature.melspectrogram(y=chunk, sr=sample_rate)
-                    
-                #mel_spectrogram = librosa.feature.melspectrogram(y=audio_data, sr=sample_rate)
-        mel_spectrogram = resize(np.expand_dims(mel_spectrogram, axis=-1), target_shape)
-        data.append(mel_spectrogram)
-    
-    return np.array(data)
-
-
-
-#Tensorflow Model Prediction
-def model_prediction(X_test):
-    model = load_model()
-    y_pred = model.predict(X_test)
-    predicted_categories = np.argmax(y_pred,axis=1)
-    unique_elements, counts = np.unique(predicted_categories, return_counts=True)
-    #print(unique_elements, counts)
-    max_count = np.max(counts)
-    max_elements = unique_elements[counts == max_count]
-    return max_elements[0]
-
-
-
-#sidebar
-st.sidebar.title("Dashboard")
-app_mode = st.sidebar.selectbox("Select Page",["Home","About Project","Prediction"])
-
-## Main Page
-if(app_mode=="Home"):
-    st.markdown(
+# Define Spotify-inspired color scheme and enhanced UI
+st.markdown(
     """
     <style>
-    .stApp {
-        background-color: #181646;  /* Blue background */
+     .stApp {
+        background-image: url('https://your-background-url.com/bg.jpg');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
+    .stSidebar, .css-1d391kg, .css-18e3th9 {
+        background-color: #FFFFFF !important;
+    }
+    h1, h2, h3, h4, h5, h6 {
         color: white;
     }
-    h2, h3 {
+    .stButton>button {
+        background-color: #1DB954 !important;
+        color: white;
+        border-radius: 50px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        padding: 10px 30px;
+        border: none;
+        cursor: pointer;
+    }
+    .stButton>button {
+        background-color: #1DB954 !important;
+        color: white;
+        border-radius: 50px;
+        font-weight: bold;
+        transition: background-color 0.3s ease;
+        padding: 10px 30px;
+        border: none;
+        cursor: pointer;
+    }
+     .stButton>button:hover {
+        background-color: #1ed760 !important;
+        transform: scale(1.1);
+    }
+    .stTextInput>div>div>input {
+        color: white;
+        background-color: #181818;
+        border-radius: 5px;
+    }
+    .stAudio {
+        background-color: #181818 !important;
+        border-radius: 10px;
+    }
+    .stSelectbox>div>div>select {
+        color: white;
+        background-color: #181818;
+        border-radius: 5px;
+    }
+     .card {
+        background-color: #ffffff;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    .card:hover {
+        transform: translateY(-10px);
+    }
+    .card h4 {
         color: white;
     }
+    .card p {
+        color: #B3B3B3;
+    }
+    .stFileUploader>div>div>div {
+        background-color: #181818 !important;
+        border-radius: 10px;
+        color: white;
+    }
+    .css-1d391kg {
+        color: white;
+        font-size: 28px;
+    }
+
+    .css-1f6a9gk {
+        background-color: black; /* Dark grey for sidebar background */
+        color: white;
+    }
+
+    # <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    # <h1 style='text-align: center; font-size: 50px; color:white;'>
+    #     <i class="fa-solid fa-music"></i>
+    # </h1>
     </style>
     """,
     unsafe_allow_html=True
 )
 
-    st.markdown(''' ## Welcome to the,\n
-    ## Music Genre Classification System! 🎶🎧''')
-    image_path = "music_genre_home.png"
-    st.image(image_path, use_column_width=True)
-    st.markdown("""
-**Our goal is to help in identifying music genres from audio tracks efficiently. Upload an audio file, and our system will analyze it to detect its genre. Discover the power of AI in music analysis!**
+# Function to load model
+@st.cache_resource()
+def load_model():
+    model = tf.keras.models.load_model("Trained_model.keras")
+    return model
 
-### How It Works
-1. **Upload Audio:** Go to the **Genre Classification** page and upload an audio file.
-2. **Analysis:** Our system will process the audio using advanced algorithms to classify it into one of the predefined genres.
-3. **Results:** View the predicted genre along with related information.
+# Load and preprocess audio data
+def load_and_preprocess_data(file_path, target_shape=(150, 150)):
+    data = []
+    audio_data, sample_rate = librosa.load(file_path, sr=None)
+    chunk_duration = 4  # seconds
+    overlap_duration = 2  # seconds
+    chunk_samples = chunk_duration * sample_rate
+    overlap_samples = overlap_duration * sample_rate
+    num_chunks = int(np.ceil((len(audio_data) - chunk_samples) / (chunk_samples - overlap_samples))) + 1
+    
+    for i in range(num_chunks):
+        start = i * (chunk_samples - overlap_samples)
+        end = start + chunk_samples
+        chunk = audio_data[start:end]
+        mel_spectrogram = librosa.feature.melspectrogram(y=chunk, sr=sample_rate)
+        mel_spectrogram = resize(np.expand_dims(mel_spectrogram, axis=-1), target_shape)
+        data.append(mel_spectrogram)
+    
+    return np.array(data)
 
-### Why Choose Us?
-- **Accuracy:** Our system leverages state-of-the-art deep learning models for accurate genre prediction.
-- **User-Friendly:** Simple and intuitive interface for a smooth user experience.
-- **Fast and Efficient:** Get results quickly, enabling faster music categorization and exploration.
+# TensorFlow Model Prediction
+def model_prediction(X_test):
+    model = load_model()
+    y_pred = model.predict(X_test)
+    predicted_categories = np.argmax(y_pred, axis=1)
+    unique_elements, counts = np.unique(predicted_categories, return_counts=True)
+    max_count = np.max(counts)
+    max_elements = unique_elements[counts == max_count]
+    return max_elements[0]
 
-### Get Started
-Click on the **Genre Classification** page in the sidebar to upload an audio file and explore the magic of our Music Genre Classification System!
-
-### About Us
-Learn more about the project, our team, and our mission on the **About** page.
-""")
+# Sidebar Navigation
+st.sidebar.title("🎵 Music Genre Classifier")
+app_mode = st.sidebar.radio("Navigation", ["🏠 Home", "🎼 Genre Library", "🎤 Predict"])
 
 
+# Home Page
+if app_mode == "🏠 Home":
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background-image: url('https://img.freepik.com/free-vector/musical-notes-pattern-black-background_1017-32303.jpg?ga=GA1.1.675669965.1739375808&semt=ais_hybrid');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            height: 100vh;
+        }
 
-#About Project
-elif(app_mode=="About Project"):
-    st.markdown("""
-                ### About Project
-                Music. Experts have been trying for a long time to understand sound and what differenciates one song from another. How to visualize sound. What makes a tone different from another.
+        .stApp::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.4);  /* Added overlay with reduced opacity */
+            z-index: -1;
+        }
 
-                This data hopefully can give the opportunity to do just that.
+        h1, h2, h3, h4, h5, h6 {
+            color: white;  /* Set all headers to white */
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+        }
 
-                ### About Dataset
-                #### Content
-                1. **genres original** - A collection of 10 genres with 100 audio files each, all having a length of 30 seconds (the famous GTZAN dataset, the MNIST of sounds)
-                2. **List of Genres** - blues, classical, country, disco, hiphop, jazz, metal, pop, reggae, rock
-                3. **images original** - A visual representation for each audio file. One way to classify data is through neural networks. Because NNs (like CNN, what we will be using today) usually take in some sort of image representation, the audio files were converted to Mel Spectrograms to make this possible.
-                4. **2 CSV files** - Containing features of the audio files. One file has for each song (30 seconds long) a mean and variance computed over multiple features that can be extracted from an audio file. The other file has the same structure, but the songs were split before into 3 seconds audio files (this way increasing 10 times the amount of data we fuel into our classification models). With data, more is always better.
-                """)
+        /* Music Genre Classification System title in red */
+        h1 {
+            color: white;  /* Set only the main title to red */
+        }
 
-#Prediction Page
-elif(app_mode=="Prediction"):
+        /* Hover effect for the title */
+        h3:hover {
+            color: #1DB954;
+            transform: scale(1.1);
+            transition: all 0.3s ease;
+        }
+
+        /* Genre list styling */
+        ul li {
+            font-size: 28px;
+            color: white;  /* Changed text color to white */
+            margin: 10px 0;
+            transition: all 0.3s ease;
+        }
+
+        ul li:hover {
+            color: #1DB954;  /* Spotify green on hover */
+            transform: translateX(10px);
+        }
+
+        .stMarkdown {
+            color: white;  /* Apply white color to other texts */
+        }
+
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Set title in red
+    st.markdown("##     Music Genre Classification System 🎷")
+    st.markdown("## Discover Music from Various Genres")
+
+    # Genre list and other text
+    st.markdown(
+        """
+        <h3 style="font-size: 36px; color: white;">Explore different music genres:</h3>
+        <ul style="font-size:20px;">
+            <li>🎸 Rock</li>
+            <li>🎻 Classical</li>
+            <li>🎷 Jazz</li>
+            <li>🎤 HipHop</li>
+            <li>🎼 Blues</li>
+            <li>💃 Disco</li>
+            <li>🎵 Pop</li>
+            <li>🤘 Metal</li>
+            <li>🌴 Reggae</li>
+            <li>🎶 Country</li>
+        </ul>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Bottom description in white
+    st.markdown(
+        """
+        Click on *Genre Library* to browse songs from each genre or go to *Predict* to classify an uploaded audio file!
+        """,
+        unsafe_allow_html=True
+    )
+# Genre Library Page
+elif app_mode == "🎼 Genre Library":
+    st.title("🎵 Explore Music by Genre")
+    selected_genre = st.selectbox("Select a Genre", list(genres.keys()))
+    st.markdown(f"### {selected_genre} Songs", unsafe_allow_html=True)
+    
+    st.write(f"Here are some popular {selected_genre} songs:")
+    for song in genres[selected_genre]:
+        st.write(f"🎶 {song['name']}")
+        choice = st.radio("Choose media type", ["Audio", "Video"], key=song['name'])
+        if choice == "Audio":
+            st.audio(song['audio'])
+        elif choice == "Video":
+            st.video(song['video'])
+
+# Prediction Page
+elif app_mode == "🎤 Predict":
     st.header("Model Prediction")
     test_mp3 = st.file_uploader("Upload an audio file", type=["mp3"])
+
     if test_mp3 is not None:
-            filepath = 'Test_Music/'+test_mp3.name
-            
+        filepath = 'Test_Music/' + test_mp3.name
+        st.write(f"File uploaded: {test_mp3.name}")
 
-    #Show Button
-    if(st.button("Play Audio")):
-        st.audio(test_mp3)
-    
-    #Predict Button
-    if(st.button("Predict")):
-      with st.spinner("Please Wait.."):       
-        X_test = load_and_preprocess_data(filepath)
-        result_index = model_prediction(X_test)
-        st.balloons()
-        label = ['blues', 'classical','country','disco','hiphop','jazz','metal','pop','reggae','rock']
-        st.markdown("**:blue[Model Prediction:] It's a  :red[{}] music**".format(label[result_index]))
+        # Play Audio Button
+        if st.button("Play Audio"):
+            st.audio(test_mp3)
 
-       
+        # Predict Button
+        if st.button("Predict"):
+            with st.spinner("Please Wait.."):
+                try:
+                    X_test = load_and_preprocess_data(filepath)
+                    st.write(f"Preprocessed Data Shape: {X_test.shape}")  # Debugging step to check the shape
+                    result_index = model_prediction(X_test)
+                    st.balloons()
+                    label = ['blues', 'classical', 'country', 'disco', 'hiphop', 'jazz', 'metal', 'pop', 'reggae', 'rock']
+                    st.markdown(f":blue[Model Prediction:] It's a :red[{label[result_index]}] music**")
+                except Exception as e:
+                    st.error(f"Error during prediction: {e}")
